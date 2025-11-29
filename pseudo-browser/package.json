@@ -1,0 +1,30 @@
+{
+  "name": "pseudo-browser",
+  "private": true,
+  "version": "0.0.0",
+  "author": "Joseph Lee <joseph@jc-lab.net>",
+  "scripts": {
+    "dev": "vite",
+    "build": "rolldown -c rolldown.config.js"
+  },
+  "devDependencies": {
+    "rolldown": "^1.0.0-beta.52",
+    "rollup-plugin-terser": "^7.0.2"
+  },
+  "dependencies": {
+    "@rolldown/plugin-node-polyfills": "^1.0.0",
+    "base64-js": "^1.5.1",
+    "browserify-fs": "^1.0.0",
+    "buffer": "^6.0.3",
+    "cheerio": "^1.0.0-rc.12",
+    "crypto-browserify": "^3.12.1",
+    "events": "^3.3.0",
+    "jquery": "^3.7.1",
+    "jquery-ui": "^1.13.3",
+    "jsdom": "^26.1.0",
+    "lodash.snakecase": "^4.1.1",
+    "readable-stream": "^4.5.2",
+    "text-encoding-polyfill": "^0.6.7",
+    "xmldom": "^0.6.0"
+  }
+}
