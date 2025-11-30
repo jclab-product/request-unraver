@@ -1,0 +1,1 @@
+exports.implementation = class XMLHttpRequestImpl {}

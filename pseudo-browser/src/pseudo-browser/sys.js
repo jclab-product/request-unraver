@@ -7,12 +7,13 @@
 
 import {toByteArray} from 'base64-js';
 
-console.log('HELLO PSEUDO BROWSER');
+// __sys_host
+//  - performance_now(): double
+// __sys_js
 
-function isAllowTimerInterval() {
-    return (typeof __sys_allow_timer_interval) === 'undefined' ? false : __sys_allow_timer_interval;
-}
-
+// function isAllowTimerInterval() {
+//     return (typeof __sys_allow_timer_interval) === 'undefined' ? false : __sys_allow_timer_interval;
+// }
 
 const b64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -92,47 +93,57 @@ function atob(input) {
 // TODO: addEventListener
 
 const __sys = {
-    deferredFunctions: [],
-    // once: boolean
-    // next_at: Int
-    // interval: Int
-    // callback: Function
-    readyListeners: [],
-    emitReady: function () {
-        for (const listener of __sys.readyListeners) {
-            listener();
+    // deferredFunctions: [],
+    // // once: boolean
+    // // next_at: Int
+    // // interval: Int
+    // // callback: Function
+    // readyListeners: [],
+    // emitReady: function () {
+    //     for (const listener of __sys.readyListeners) {
+    //         listener();
+    //     }
+    // },
+    // newElement: function () {
+    //     const element = {
+    //         _pseudo: true,
+    //     };
+    //     element.style = {};
+    //     element.setAttribute = (key, value) => {
+    //         if (key === 'style') {
+    //             return;
+    //         }
+    //         element.key = value;
+    //     }
+    //     element.appendChild = () => {
+    //     };
+    //     element.on = () => {
+    //         return element;
+    //     }
+    //     element.once = () => {
+    //         return element;
+    //     }
+    //     element.off = () => {
+    //         return element;
+    //     }
+    //     element.add = () => {
+    //     };
+    //
+    //     return element;
+    // },
+    // // overrideWindow: {
+    // //     btoa: btoa,
+    // //     atob: atob,
+    // // },
+    overrideWindow: {},
+    getLine: function () {
+        const e = new Error();
+        if (!e.stack) {
+            return '';
         }
-    },
-    newElement: function () {
-        const element = {
-            _pseudo: true,
-        };
-        element.style = {};
-        element.setAttribute = (key, value) => {
-            if (key === 'style') {
-                return;
-            }
-            element.key = value;
-        }
-        element.appendChild = () => {
-        };
-        element.on = () => {
-            return element;
-        }
-        element.once = () => {
-            return element;
-        }
-        element.off = () => {
-            return element;
-        }
-        element.add = () => {
-        };
-
-        return element;
-    },
-    overrideWindow: {
-        btoa: btoa,
-        atob: atob,
+        const stack = e.stack.toString().split(/\r\n|\n/)[1];
+        const frame = /:(\d+)\)/.exec(stack);
+        return frame && frame[1] || '';
     },
 };
 
@@ -250,28 +261,20 @@ const __sys = {
     __sys.overrideWindow.XMLHttpRequest = XMLHttpRequest;
 })();
 
-globalThis.__sys = __sys;
-globalThis.process = {
-    version: '0.0.0',
-    env: {},
-    nextTick: function (fn) {
-        __sys.deferredFunctions.push(fn);
-    }
-};
-globalThis.performance = {
-    now: function () {
-        return __monotonic_ms_float();
+Object.assign(global, {
+    __sys: __sys,
+    performance: {
+        now: __sys_host.performance_now,
     },
-};
+    atob: atob,
+    btoa: btoa,
+})
 
-Object.assign(globalThis, __sys.overrideWindow);
-
-globalThis.getLine = function () {
-    const e = new Error();
-    if (!e.stack) {
-        return '';
-    }
-    const stack = e.stack.toString().split(/\r\n|\n/)[1];
-    const frame = /:(\d+)\)/.exec(stack);
-    return frame && frame[1] || '';
-};
+// {
+//     version: '0.0.0',
+//     env: {},
+//     nextTick: function (fn) {
+//         __sys.deferredFunctions.push(fn);
+//     }
+// };
+// Object.assign(global, __sys.overrideWindow);

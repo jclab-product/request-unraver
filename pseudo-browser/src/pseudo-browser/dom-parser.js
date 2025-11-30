@@ -9,6 +9,4 @@ import {
  DOMParser
 } from 'xmldom';
 
-__sys.DOMParser = DOMParser;
 __sys.overrideWindow.DOMParser = DOMParser;
-globalThis.DOMParser = DOMParser;

@@ -49,7 +49,7 @@ const jQuery = new Proxy(jQueryOrig, {
     }
 });
 
-globalThis.jQuery = jQuery;
-globalThis.$ = jQuery;
-globalThis.window.jQuery = jQuery;
-globalThis.window.$ = jQuery;
+global.jQuery = jQuery;
+global.$ = jQuery;
+global.window.jQuery = jQuery;
+global.window.$ = jQuery;

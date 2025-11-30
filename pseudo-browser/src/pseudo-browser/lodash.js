@@ -4,5 +4,5 @@ const lodash = {};
 
 lodash.snakeCase = snakeCase;
 
-globalThis.window._ = lodash;
-globalThis._ = lodash;
+global.window._ = lodash;
+global._ = lodash;

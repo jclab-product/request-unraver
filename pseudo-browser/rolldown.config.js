@@ -2,7 +2,14 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // import { createRequire } from 'node:module';
 import path from 'path';
+
 import nodePolyfills from '@rolldown/plugin-node-polyfills';
+import alias from '@rollup/plugin-alias';
+import resolve from '@rollup/plugin-node-resolve';
+
+const customResolver = resolve({
+    extensions: ['.mjs', '.js', '.jsx', '.json', '.sass', '.scss']
+});
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // const require = createRequire(import.meta.url);
@@ -27,6 +34,7 @@ const polyfillNames = [
     // "net",
     "os",
     "path",
+    "process",
     // "perf_hooks",
     "querystring",
     // "sqlite",
@@ -52,6 +60,8 @@ const moduleNames = [
     // 'rrweb-cssom',
     'xml-name-validator',
     // 'vm',
+    'http',
+    'https',
     'http-proxy-agent',
     'https-proxy-agent',
     'undici',
@@ -65,6 +75,8 @@ const commonOptions = (name) => ({
         'canvas',
         'ws', // ref: undici?
         'undici', // ref: cheerio
+        'http', // ref: ? -> rolldown-plugin-node-polyfills
+        'https',
     ],
 })
 
@@ -153,6 +165,28 @@ const options = [
         },
         plugins: [
             nodePolyfills(),
+            alias({
+                entries: [
+                    {
+                        find: /^.+XMLHttpRequest-impl(\.js)?$/,
+                        replacement: path.resolve(__dirname, 'src/jsdom/XMLHttpRequest-impl.js')
+                    },
+                    {
+                        find: /^.+WebSocket-impl(\.js)?$/,
+                        replacement: path.resolve(__dirname, 'src/jsdom/WebSocket-impl.js')
+                    },
+                ],
+                // customResolver: async function(source, importer, options) {
+                //     // source: string,
+                //     // 	importer: string | undefined,
+                //     // 	options: { attributes: Record<string, string>; custom?: CustomPluginOptions; isEntry: boolean }
+                //     console.log('customResolver : ', customResolver);
+                //     source = path.resolve(__dirname, 'src/jsdom/XMLHttpRequest-impl.js');
+                //     const output = await customResolver['resolveId'].handler(source, importer, options);
+                //     console.log('customResolver: ', arguments, ' :: ', output);
+                //     return output;
+                // }
+            })
         ]
     }
 ];

@@ -6,4 +6,8 @@
  */
 
 import { JSDOM } from 'jsdom';
-globalThis.JSDOM = JSDOM;
+global.JSDOM = JSDOM;
+
+// TODO
+// - TextEncoder
+// - TextDecoder

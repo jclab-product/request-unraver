@@ -9,7 +9,7 @@ import * as cheerio from 'cheerio';
 
 (function () {
     const early$ = cheerio.load(__sys_document_source);
-    globalThis.__sys_document_script = early$('script:not([src])').html();
+    global.__sys_document_script = early$('script:not([src])').html();
 
     const dom = new JSDOM(__sys_document_source, {
         url: __sys_document_url,
@@ -20,7 +20,7 @@ import * as cheerio from 'cheerio';
     });
 
     Object.assign(dom.window, __sys.overrideWindow);
-    globalThis.window = dom.window;
-    globalThis.self = globalThis.window;
-    Object.assign(globalThis, globalThis.window);
+    global.window = dom.window;
+    global.self = global.window;
+    Object.assign(global, global.window);
 })();

@@ -7,5 +7,8 @@
 
 import * as textEncodings from 'text-encoding-polyfill';
 
-globalThis.TextEncoder = textEncodings.TextEncoder;
-globalThis.TextDecoder = textEncodings.TextDecoder;
+global.TextEncoder = textEncodings.TextEncoder;
+global.TextDecoder = textEncodings.TextDecoder;
+
+__sys.overrideWindow.TextEncoder = TextEncoder;
+__sys.overrideWindow.TextDecoder = TextDecoder;

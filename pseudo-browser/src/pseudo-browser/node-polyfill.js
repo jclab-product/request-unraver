@@ -1,8 +1,11 @@
+import * as process from 'node:process';
 import { Buffer } from 'buffer';
 
-globalThis.Buffer = Buffer;
+global.Buffer = Buffer;
 
-globalThis.FinalizationRegistry = class FinalizationRegistry {
+global.FinalizationRegistry = class FinalizationRegistry {
     register() {}
     unregister() {}
 }
+
+global.process = process;

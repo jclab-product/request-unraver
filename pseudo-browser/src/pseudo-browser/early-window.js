@@ -5,8 +5,8 @@
  * For use only by licensed user/company.
  */
 
-globalThis.window = {};
-globalThis.window.AbortController = class AbortController {
+global.window = {};
+global.window.AbortController = class AbortController {
 };
-globalThis.window.AbortSignal = class AbortSignal {
+global.window.AbortSignal = class AbortSignal {
 };

@@ -51,6 +51,11 @@ static JSValue JsClearTimeoutBinding(JSContext* ctx, JSValueConst this_val,
   // return Engine::GetInstance()->ModuleLoader(ctx, module_name, opaque);
 // }
 
+static JSValue JsSysHostPerformanceNow(JSContext* ctx, JSValueConst this_val,
+                                     int argc, JSValueConst* argv) {
+  return JS_NewFloat64(ctx, emscripten_get_now());
+}
+
 Engine* Engine::GetInstance() {
   if (!instance_) {
     instance_ = new Engine();
@@ -172,6 +177,14 @@ void Engine::RegisterGlobals() {
   JS_SetPropertyStr(ctx_, global_obj, "clearInterval",
                     JS_NewCFunction(ctx_, JsClearTimeoutBinding, "clearInterval",
                                     1));
+
+  // __sys_host
+  JSValue sys_host = JS_NewObject(ctx_);
+
+  JS_SetPropertyStr(ctx_, sys_host, "performance_now",
+    JS_NewCFunction(ctx_, JsSysHostPerformanceNow, "performance_now", 0));
+
+  JS_SetPropertyStr(ctx_, global_obj, "__sys_host", sys_host);
 
   // console 객체
   JSValue console_obj = JS_NewObject(ctx_);
