@@ -37,6 +37,8 @@ bool VfsManager::Init(const unsigned char* data, size_t size) {
   }
   printf("✓ VFS mounted successfully (%zu bytes)\n", size);
 
+  errno = 0;
+
   // VFS 파일 리스트 출력 (디버깅용)
   printf("📁 VFS Files:\n");
   SQUASH_DIR* dir = squash_opendir(vfs_, "/");
@@ -46,6 +48,8 @@ bool VfsManager::Init(const unsigned char* data, size_t size) {
       printf("  - %s\n", entry->d_name);
     }
     squash_closedir(dir);
+  } else {
+    fprintf(stderr, "NOENT: %d\n", errno);
   }
   return true;
 }

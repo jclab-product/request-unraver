@@ -102,11 +102,16 @@ add_subdirectory(${QUICKJS_DIR} ${BUILD_DIR}/quickjs-ng)
 # 메인 소스 파일
 set(MAIN_SOURCES
         ${SRC_DIR}/main.cc
+        ${SRC_DIR}/wasm_binding.cc
+        ${SRC_DIR}/wasm_binding.h
         ${SRC_DIR}/engine.cc
         ${SRC_DIR}/timer_manager.cc
         ${SRC_DIR}/vfs_manager.cc
         ${SRC_DIR}/util.cc
         ${SRC_DIR}/util.h
+        ${SRC_DIR}/vfd.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/walink/cpp/src/walink.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/walink/cpp/include/walink.h
 )
 set(STATIC_VFS_DATA_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/static_vfs_data.cc)
 set(STATIC_VFS_DATA_HEADER ${CMAKE_CURRENT_BINARY_DIR}/static_vfs_data.h)
@@ -114,29 +119,29 @@ set(STATIC_VFS_DATA_HEADER ${CMAKE_CURRENT_BINARY_DIR}/static_vfs_data.h)
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/sysfs)
 
-FILE(GLOB PSEUDO_BROWSER_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/pseudo-browser/src/*.js)
+FILE(GLOB PSEUDO_BROWSER_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/src/*.js)
 add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/pseudo-browser/dist/pseudo-browser.umd.cjs
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pseudo-browser
-        COMMAND ${SCRIPTS_DIR}/build-pseudo-browser.sh
+        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist/pseudo-browser.js
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/node
+        COMMAND ${SCRIPTS_DIR}/build-pseudo-browser.sh pseudo-browser
         DEPENDS
             ${SCRIPTS_DIR}/build-pseudo-browser.sh
-            ${CMAKE_CURRENT_SOURCE_DIR}/pseudo-browser/pnpm-lock.yaml
+            ${CMAKE_CURRENT_SOURCE_DIR}/node/pnpm-lock.yaml
             ${PSEUDO_BROWSER_SRC_FILES}
         COMMENT "Building pseudo-browser"
 )
 
 # static_vfs_data 생성 (pseudo-browser 빌드 및 pack-static-vfs 스크립트 실행)
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sysfs/pseudo-browser.umd.cjs ${STATIC_VFS_DATA_SOURCE} ${STATIC_VFS_DATA_HEADER}
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sysfs/pseudo-browser.js ${STATIC_VFS_DATA_SOURCE} ${STATIC_VFS_DATA_HEADER}
     COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/sysfs/
-    COMMAND cp -rf ${CMAKE_CURRENT_SOURCE_DIR}/pseudo-browser/dist ${CMAKE_CURRENT_BINARY_DIR}/sysfs
+    COMMAND cp -rf ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist ${CMAKE_CURRENT_BINARY_DIR}/sysfs
     COMMAND cp -rf ${CMAKE_CURRENT_SOURCE_DIR}/src/init.js ${CMAKE_CURRENT_BINARY_DIR}/sysfs/init.js
     COMMAND ${SCRIPTS_DIR}/pack-static-vfs.sh "${CMAKE_CURRENT_BINARY_DIR}/sysfs" "${CMAKE_CURRENT_BINARY_DIR}/sysfs.sqfs" "static_vfs_data" "static_vfs"
     DEPENDS
         ${CMAKE_CURRENT_SOURCE_DIR}/src/init.js
         ${SCRIPTS_DIR}/pack-static-vfs.sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/pseudo-browser/dist/pseudo-browser.umd.cjs
+        ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist/pseudo-browser.js
     COMMENT "Packing static vfs to SquashFS..."
 )
 add_library(static_vfs_data STATIC ${STATIC_VFS_DATA_SOURCE} ${STATIC_VFS_DATA_HEADER})
@@ -151,12 +156,16 @@ target_include_directories(quickjs-api PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${SRC_DIR}
     ${LIBSQUASH_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/walink/cpp/include
 )
 target_link_options(quickjs-api PRIVATE
         -O3
         -sWASM=1
+        -sWASM_BIGINT=1
+        -sSTANDALONE_WASM=1
         -sEXPORTED_FUNCTIONS=['_js_init','_js_cleanup','_js_eval','_js_calculate','_js_free_string','_js_loop_step','_js_has_timers','_js_has_pending_jobs','_add','_multiply','_malloc','_free']
         -sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString','stringToUTF8','lengthBytesUTF8']
+        -sERROR_ON_UNDEFINED_SYMBOLS=0
         -sALLOW_MEMORY_GROWTH=1
         -sMODULARIZE=1
         -sEXPORT_NAME='createQuickJSModule'
@@ -171,13 +180,13 @@ set_target_properties(quickjs-api PROPERTIES
     OUTPUT_NAME quickjs-api
 )
 
-# WASM 빌드 후 파일 이름 변경 및 Node.js unit test 자동 실행 (emscripten은 .js와 .wasm을 함께 생성)
-add_custom_command(TARGET quickjs-api POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "WASM build completed: ${DIST_DIR}/quickjs-api.js and ${DIST_DIR}/quickjs-api.wasm"
-    COMMAND ${CMAKE_COMMAND} -E echo "Running Node.js unit tests..."
-    COMMAND node --no-experimental-fetch ${CMAKE_CURRENT_SOURCE_DIR}/test/node-require.test.js
-    COMMENT "Running Node.js unit tests after WASM build..."
-)
-
-# CMake 타겟에 대한 별칭 (Makefile의 'wasm' 타겟과 유사, test 자동 실행 포함)
-add_custom_target(wasm ALL DEPENDS quickjs-api)
+## WASM 빌드 후 파일 이름 변경 및 Node.js unit test 자동 실행 (emscripten은 .js와 .wasm을 함께 생성)
+#add_custom_command(TARGET quickjs-api POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E echo "WASM build completed: ${DIST_DIR}/quickjs-api.js and ${DIST_DIR}/quickjs-api.wasm"
+#    COMMAND ${CMAKE_COMMAND} -E echo "Running Node.js unit tests..."
+#    COMMAND node --no-experimental-fetch ${CMAKE_CURRENT_SOURCE_DIR}/test/node-require.test.js
+#    COMMENT "Running Node.js unit tests after WASM build..."
+#)
+#
+## CMake 타겟에 대한 별칭 (Makefile의 'wasm' 타겟과 유사, test 자동 실행 포함)
+#add_custom_target(wasm ALL DEPENDS quickjs-api)

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "util.h"
+#include "wasm_binding.h"
 
 extern "C" {
 #include <cutils.h>
@@ -53,7 +54,7 @@ static JSValue JsClearTimeoutBinding(JSContext* ctx, JSValueConst this_val,
 
 static JSValue JsSysHostPerformanceNow(JSContext* ctx, JSValueConst this_val,
                                      int argc, JSValueConst* argv) {
-  return JS_NewFloat64(ctx, emscripten_get_now());
+  return JS_NewFloat64(ctx, ru_get_now());
 }
 
 Engine* Engine::GetInstance() {

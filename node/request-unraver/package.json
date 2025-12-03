@@ -1,11 +1,60 @@
 {
   "name": "request-unraver",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
-  "private": true,
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "main": "./dist/request-unraver.cjs",
+  "module": "./dist/request-unraver.mjs",
+  "types": "./dist/request-unraver.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/request-unraver.cjs",
+      "import": "./dist/request-unraver.mjs",
+      "types": "./dist/request-unraver.d.ts"
+    }
   },
-  "keywords": [],
-  "author": ""
+  "scripts": {
+    "build": "rollup -c rollup.config.mts",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "dev": "esr ./src/dev.ts"
+  },
+  "keywords": [
+    "wasm",
+    "emscripten",
+    "typed-values",
+    "bridge",
+    "request-unraver"
+  ],
+  "homepage": "https://github.com/jc-lab/request-unraver#readme",
+  "bugs": {
+    "url": "https://github.com/jc-lab/request-unraver/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jc-lab/request-unraver.git"
+  },
+  "author": "Joseph Lee <joseph@jc-lab.net>",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "esbuild-runner": "^2.2.2",
+    "eslint": "^9.0.0",
+    "rollup": "^4.53.3",
+    "tslib": "^2.8.1",
+    "typescript": "^5.6.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "msgpackr": "^1.11.5",
+    "walink": "^0.0.1"
+  }
 }

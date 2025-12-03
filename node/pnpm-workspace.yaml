@@ -1,3 +1,7 @@
 packages:
   - pseudo-browser
   - request-unraver
+
+onlyBuiltDependencies:
+  - esbuild
+  - msgpackr-extract
