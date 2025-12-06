@@ -10,6 +10,7 @@ set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/quickjs-ng)
 set(LIBSQUASH_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libsquash)
 set(ZLIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zlib)
+set(MSGPACK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/msgpack)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/build)
 set(DIST_DIR ${CMAKE_CURRENT_BINARY_DIR}/dist)
@@ -95,13 +96,13 @@ target_compile_options(squash PRIVATE -I${CMAKE_CURRENT_SOURCE_DIR}/include)
 # THIRD_PARTY: quickjs
 add_subdirectory(${QUICKJS_DIR} ${BUILD_DIR}/quickjs-ng)
 
-
-
-
+# THIRD_PARTY: msgpack
+SET (MSGPACK_USE_BOOST  OFF CACHE BOOLEAN "Use Boost libraried" FORCE)
+SET (MSGPACK_BUILD_DOCS OFF CACHE BOOLEAN "Build Doxygen documentation" FORCE)
+add_subdirectory(${MSGPACK_DIR} ${BUILD_DIR}/msgpack)
 
 # 메인 소스 파일
 set(MAIN_SOURCES
-        ${SRC_DIR}/main.cc
         ${SRC_DIR}/wasm_binding.cc
         ${SRC_DIR}/wasm_binding.h
         ${SRC_DIR}/engine.cc
@@ -110,18 +111,26 @@ set(MAIN_SOURCES
         ${SRC_DIR}/util.cc
         ${SRC_DIR}/util.h
         ${SRC_DIR}/vfd.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/walink/cpp/src/walink.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/walink/cpp/src/walink.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/walink/cpp/include/walink.h
-)
+ )
+ 
+ # wasm binding source
+ list(APPEND REQUEST_UNRAVER_SOURCES
+   ${CMAKE_CURRENT_SOURCE_DIR}/src/wasm_binding.cc
+ )
 set(STATIC_VFS_DATA_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/static_vfs_data.cc)
 set(STATIC_VFS_DATA_HEADER ${CMAKE_CURRENT_BINARY_DIR}/static_vfs_data.h)
 
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/sysfs)
 
-FILE(GLOB PSEUDO_BROWSER_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/src/*.js)
+FILE(GLOB_RECURSE PSEUDO_BROWSER_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/src/*.js)
+message("PSEUDO_BROWSER_SRC_FILES : ${PSEUDO_BROWSER_SRC_FILES}")
 add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist/pseudo-browser.js
+        OUTPUT
+            ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist/pseudo-browser-full.js
+            ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist/pseudo-browser-mini.js
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/node
         COMMAND ${SCRIPTS_DIR}/build-pseudo-browser.sh pseudo-browser
         DEPENDS
@@ -133,7 +142,10 @@ add_custom_command(
 
 # static_vfs_data 생성 (pseudo-browser 빌드 및 pack-static-vfs 스크립트 실행)
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sysfs/pseudo-browser.js ${STATIC_VFS_DATA_SOURCE} ${STATIC_VFS_DATA_HEADER}
+    OUTPUT
+        ${CMAKE_CURRENT_BINARY_DIR}/sysfs/pseudo-browser-full.js
+        ${CMAKE_CURRENT_BINARY_DIR}/sysfs/pseudo-browser-mini.js
+        ${STATIC_VFS_DATA_SOURCE} ${STATIC_VFS_DATA_HEADER}
     COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/sysfs/
     COMMAND cp -rf ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist ${CMAKE_CURRENT_BINARY_DIR}/sysfs
     COMMAND cp -rf ${CMAKE_CURRENT_SOURCE_DIR}/src/init.js ${CMAKE_CURRENT_BINARY_DIR}/sysfs/init.js
@@ -141,16 +153,17 @@ add_custom_command(
     DEPENDS
         ${CMAKE_CURRENT_SOURCE_DIR}/src/init.js
         ${SCRIPTS_DIR}/pack-static-vfs.sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist/pseudo-browser.js
+        ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist/pseudo-browser-full.js
+        ${CMAKE_CURRENT_SOURCE_DIR}/node/pseudo-browser/dist/pseudo-browser-mini.js
     COMMENT "Packing static vfs to SquashFS..."
 )
 add_library(static_vfs_data STATIC ${STATIC_VFS_DATA_SOURCE} ${STATIC_VFS_DATA_HEADER})
 
 # 메인 실행 파일 (WASM 모듈)
-add_executable(quickjs-api ${MAIN_SOURCES})
-target_link_libraries(quickjs-api PRIVATE static_vfs_data qjs zlibstatic squash)
-target_compile_definitions(quickjs-api PRIVATE CONFIG_VERSION="ng")
-target_include_directories(quickjs-api PRIVATE
+add_executable(request-unraver-wasm ${MAIN_SOURCES})
+target_link_libraries(request-unraver-wasm PRIVATE static_vfs_data qjs zlibstatic squash msgpack-cxx)
+target_compile_definitions(request-unraver-wasm PRIVATE CONFIG_VERSION="ng")
+target_include_directories(request-unraver-wasm PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -158,35 +171,37 @@ target_include_directories(quickjs-api PRIVATE
     ${LIBSQUASH_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/walink/cpp/include
 )
-target_link_options(quickjs-api PRIVATE
+target_link_options(request-unraver-wasm PRIVATE
         -O3
         -sWASM=1
         -sWASM_BIGINT=1
         -sSTANDALONE_WASM=1
-        -sEXPORTED_FUNCTIONS=['_js_init','_js_cleanup','_js_eval','_js_calculate','_js_free_string','_js_loop_step','_js_has_timers','_js_has_pending_jobs','_add','_multiply','_malloc','_free']
+        -sEXPORTED_FUNCTIONS=['_walink_alloc','_walink_free','_engine_new','_engine_cleanup','_engine_has_timers','_engine_has_pending_jobs','_engine_js_eval','_engine_browser_eval','_malloc','_free']
         -sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString','stringToUTF8','lengthBytesUTF8']
         -sERROR_ON_UNDEFINED_SYMBOLS=0
         -sALLOW_MEMORY_GROWTH=1
         -sMODULARIZE=1
         -sEXPORT_NAME='createQuickJSModule'
 #        -sINITIAL_MEMORY=33554432
-        -sINITIAL_MEMORY=67108864
+#        -sINITIAL_MEMORY=67108864
+        -sINITIAL_MEMORY=134217728
         -sSTACK_SIZE=8388608
+#        -sSTACK_SIZE=16777216
         -sASSERTIONS=2
         --no-entry
 )
-set_target_properties(quickjs-api PROPERTIES
+set_target_properties(request-unraver-wasm PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${DIST_DIR}
-    OUTPUT_NAME quickjs-api
+    OUTPUT_NAME request-unraver-wasm
 )
 
 ## WASM 빌드 후 파일 이름 변경 및 Node.js unit test 자동 실행 (emscripten은 .js와 .wasm을 함께 생성)
-#add_custom_command(TARGET quickjs-api POST_BUILD
-#    COMMAND ${CMAKE_COMMAND} -E echo "WASM build completed: ${DIST_DIR}/quickjs-api.js and ${DIST_DIR}/quickjs-api.wasm"
+#add_custom_command(TARGET request-unraver-wasm POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E echo "WASM build completed: ${DIST_DIR}/request-unraver-wasm.js and ${DIST_DIR}/request-unraver-wasm.wasm"
 #    COMMAND ${CMAKE_COMMAND} -E echo "Running Node.js unit tests..."
 #    COMMAND node --no-experimental-fetch ${CMAKE_CURRENT_SOURCE_DIR}/test/node-require.test.js
 #    COMMENT "Running Node.js unit tests after WASM build..."
 #)
 #
 ## CMake 타겟에 대한 별칭 (Makefile의 'wasm' 타겟과 유사, test 자동 실행 포함)
-#add_custom_target(wasm ALL DEPENDS quickjs-api)
+#add_custom_target(wasm ALL DEPENDS request-unraver-wasm)

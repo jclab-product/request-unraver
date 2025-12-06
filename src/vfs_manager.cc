@@ -48,8 +48,6 @@ bool VfsManager::Init(const unsigned char* data, size_t size) {
       printf("  - %s\n", entry->d_name);
     }
     squash_closedir(dir);
-  } else {
-    fprintf(stderr, "NOENT: %d\n", errno);
   }
   return true;
 }

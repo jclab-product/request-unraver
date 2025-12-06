@@ -156,7 +156,8 @@ const options = [
     {
         ...commonOptions(null),
         input: {
-            'pseudo-browser': path.join(__dirname, 'src/pseudo-browser/index.js'),
+            'pseudo-browser-full': path.join(__dirname, 'src/pseudo-browser/full.js'),
+            'pseudo-browser-mini': path.join(__dirname, 'src/pseudo-browser/mini.js'),
         },
         output: {
             format: 'cjs',

@@ -6,8 +6,15 @@
  */
 
 import { JSDOM } from 'jsdom';
-global.JSDOM = JSDOM;
-
-// TODO
-// - TextEncoder
-// - TextDecoder
+__sys.JSDOM = JSDOM;
+__sys.createWindow = function(content, windowOptions) {
+    const result = new JSDOM(content || '', windowOptions);
+    // 'crypto' override not working
+    Object.assign(result.window, __sys.overrideWindow);
+    return new Proxy(result.window, {
+        set(target, p, newValue, receiver) {
+            target[p] = newValue;
+            global[p] = newValue;
+        }
+    });
+}

@@ -16,13 +16,12 @@ extern "C" {
 
 namespace request_unraver {
 
+#define ENGINE_MODE_MINI 14587050
+#define ENGINE_MODE_FULL 22448265
+
 class Engine {
  public:
-  static Engine* GetInstance();
-  static void CleanupInstance();
-
-  // 초기화/정리
-  bool Init();
+  bool Init(uint32_t mode);
   void Shutdown();
 
   // 이벤트 루프
@@ -34,10 +33,6 @@ class Engine {
 
   // JS 실행
   char* Eval(const char* code);
-  double Calculate(const char* expression);
-
-  // 메모리 해제
-  static void FreeString(char* str);
 
   // 접근자 (내부용)
   JSRuntime* runtime() const { return rt_; }
@@ -63,6 +58,11 @@ class Engine {
   void js_std_dump_error1(JSContext *ctx, JSValueConst exception_val);
   void js_std_dump_error(JSContext *ctx);
 
+  static std::string js_to_string(JSContext* ctx, JSValueConst v);
+  static std::string js_error_to_string(JSContext *ctx, JSValueConst exception_val);
+
+  JSValue CreateWindow(const char* content, const uint8_t *windowOptions_msgp, int windowOptions_len);
+
  private:
   // 헬퍼 함수들
   std::string Basename(const std::string& path);
@@ -82,12 +82,11 @@ class Engine {
   std::map<std::string, JSValue> loaded_modules_;
 
 private:
-  static Engine* instance_;
 
-  JSRuntime* rt_;
-  JSContext* ctx_;
-  std::unique_ptr<TimerManager> timer_manager_;
-  std::unique_ptr<VfsManager> vfs_manager_;
+ JSRuntime* rt_;
+ JSContext* ctx_;
+ std::unique_ptr<TimerManager> timer_manager_;
+ std::unique_ptr<VfsManager> vfs_manager_;
 };
 
 }  // namespace request_unraver

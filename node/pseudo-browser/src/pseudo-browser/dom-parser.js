@@ -9,4 +9,4 @@ import {
  DOMParser
 } from 'xmldom';
 
-__sys.overrideWindow.DOMParser = DOMParser;
+// __sys.overrideWindow.DOMParser = DOMParser;

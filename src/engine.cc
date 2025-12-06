@@ -21,55 +21,73 @@ extern "C" {
 
 namespace request_unraver {
 
-// 정적 멤버 초기화
-Engine* Engine::instance_ = nullptr;
 
 // QuickJS C 함수 바인딩을 위한 헬퍼
-// Engine 인스턴스를 가져와 해당 멤버 함수를 호출
+// Runtime opaque 에 저장된 Engine 인스턴스를 사용하여 멤버 호출
 static JSValue JsConsoleLogBinding(JSContext* ctx, JSValueConst this_val,
                                    int argc, JSValueConst* argv) {
-  return Engine::GetInstance()->JsConsoleLog(ctx, this_val, argc, argv);
+  JSRuntime* rt = JS_GetRuntime(ctx);
+  Engine* eng = static_cast<Engine*>(JS_GetRuntimeOpaque(rt));
+  if (!eng) return JS_EXCEPTION;
+  return eng->JsConsoleLog(ctx, this_val, argc, argv);
 }
 
 static JSValue JsRequireBinding(JSContext* ctx, JSValueConst this_val,
                                 int argc, JSValueConst* argv) {
-  return Engine::GetInstance()->JsRequire(ctx, this_val, argc, argv);
+  JSRuntime* rt = JS_GetRuntime(ctx);
+  Engine* eng = static_cast<Engine*>(JS_GetRuntimeOpaque(rt));
+  if (!eng) return JS_EXCEPTION;
+  return eng->JsRequire(ctx, this_val, argc, argv);
 }
 
 static JSValue JsSetTimeoutBinding(JSContext* ctx, JSValueConst this_val,
                                    int argc, JSValueConst* argv, int magic) {
-  return Engine::GetInstance()->timer_manager()->SetTimeoutImpl(
-      ctx, this_val, argc, argv, magic);
+  JSRuntime* rt = JS_GetRuntime(ctx);
+  Engine* eng = static_cast<Engine*>(JS_GetRuntimeOpaque(rt));
+  if (!eng || !eng->timer_manager()) return JS_EXCEPTION;
+  return eng->timer_manager()->SetTimeoutImpl(ctx, this_val, argc, argv, magic);
 }
 
 static JSValue JsClearTimeoutBinding(JSContext* ctx, JSValueConst this_val,
                                      int argc, JSValueConst* argv) {
-  return Engine::GetInstance()->timer_manager()->ClearTimeoutImpl(
-      ctx, this_val, argc, argv);
+  JSRuntime* rt = JS_GetRuntime(ctx);
+  Engine* eng = static_cast<Engine*>(JS_GetRuntimeOpaque(rt));
+  if (!eng || !eng->timer_manager()) return JS_EXCEPTION;
+  return eng->timer_manager()->ClearTimeoutImpl(ctx, this_val, argc, argv);
 }
-
-// static JSModuleDef* JsModuleLoaderBinding(JSContext* ctx, const char* module_name, void* opaque) {
-  // return Engine::GetInstance()->ModuleLoader(ctx, module_name, opaque);
-// }
 
 static JSValue JsSysHostPerformanceNow(JSContext* ctx, JSValueConst this_val,
                                      int argc, JSValueConst* argv) {
   return JS_NewFloat64(ctx, ru_get_now());
 }
 
-Engine* Engine::GetInstance() {
-  if (!instance_) {
-    instance_ = new Engine();
+static JSValue JsSysHostCryptoGetRandomValues(JSContext* ctx, JSValueConst this_val,
+                                     int argc, JSValueConst* argv) {
+  int typed = JS_GetTypedArrayType(argv[0]);
+  if (JS_IsArrayBuffer(argv[0])) {
+    size_t size = 0;
+    uint8_t* data = JS_GetArrayBuffer(ctx, &size, argv[0]);
+    ru_get_random(data, (int) size);
+  } else if (typed >= 0) {
+    size_t offset = 0;
+    size_t length = 0;
+    size_t unit = 0;
+    size_t cap = 0;
+    JSValue buffer_obj = JS_GetTypedArrayBuffer(ctx, argv[0], &offset, &length, &unit);
+    if (JS_IsException(buffer_obj)) {
+      return JS_EXCEPTION;
+    }
+
+    uint8_t* data = JS_GetArrayBuffer(ctx, &cap, buffer_obj);
+    ru_get_random(&data[offset], (int) length);
+    JS_FreeValue(ctx, buffer_obj);
+  } else {
+    return JS_ThrowTypeError(ctx, "not array buffer");
   }
-  return instance_;
+
+  return JS_DupValue(ctx, argv[0]);
 }
 
-void Engine::CleanupInstance() {
-  if (instance_) {
-    delete instance_;
-    instance_ = nullptr;
-  }
-}
 
 Engine::Engine() : rt_(nullptr), ctx_(nullptr) {}
 
@@ -77,7 +95,7 @@ Engine::~Engine() {
   Shutdown();
 }
 
-bool Engine::Init() {
+bool Engine::Init(uint32_t mode) {
   if (rt_ != nullptr) {
     return true;  // 이미 초기화됨
   }
@@ -103,7 +121,12 @@ bool Engine::Init() {
 
   // Issue: https://github.com/quickjs-ng/quickjs/issues/774
   // Eval("Array.prototype.toString = Object.prototype.toString");
-  Eval("require(\"sysfs:///pseudo-browser.js\");");
+
+  if (mode == ENGINE_MODE_MINI) {
+    Eval("require(\"sysfs:///pseudo-browser-mini.js\");");
+  } else if (mode == ENGINE_MODE_FULL) {
+    Eval("require(\"sysfs:///pseudo-browser-full.js\");");
+  }
 
   return true;
 }
@@ -138,7 +161,10 @@ bool Engine::InitializeRuntime() {
     return false;
   }
 
-  JS_SetCanBlock(rt_, 1);  // Promise 지원을 위한 설정
+  // Store pointer to Engine in runtime opaque so C callbacks can retrieve it.
+  JS_SetRuntimeOpaque(rt_, this);
+
+  // JS_SetCanBlock(rt_, 1);  // Promise 지원을 위한 설정
   // JS_SetModuleLoaderFunc(rt_, nullptr, JsModuleLoaderBinding, nullptr);
 
   ctx_ = JS_NewContext(rt_);
@@ -185,7 +211,16 @@ void Engine::RegisterGlobals() {
   JS_SetPropertyStr(ctx_, sys_host, "performance_now",
     JS_NewCFunction(ctx_, JsSysHostPerformanceNow, "performance_now", 0));
 
+  JS_SetPropertyStr(ctx_, sys_host, "crypto_getRandomValues",
+    JS_NewCFunction(ctx_, JsSysHostCryptoGetRandomValues, "crypto_getRandomValues", 1));
+
   JS_SetPropertyStr(ctx_, global_obj, "__sys_host", sys_host);
+
+  // crypto
+  JSValue crypto_obj = JS_NewObject(ctx_);
+  JS_SetPropertyStr(ctx_, crypto_obj, "getRandomValues",
+    JS_NewCFunction(ctx_, JsSysHostCryptoGetRandomValues, "getRandomValues", 1));
+  JS_SetPropertyStr(ctx_, global_obj, "crypto", crypto_obj);
 
   // console 객체
   JSValue console_obj = JS_NewObject(ctx_);
@@ -454,6 +489,65 @@ void Engine::js_std_dump_error(JSContext *ctx) {
   JS_FreeValue(ctx, exception_val);
 }
 
+std::string Engine::js_to_string(JSContext* ctx, JSValueConst v) {
+  std::string output;
+  const char *str = JS_ToCString(ctx, v);
+  if (str) {
+    output = str;
+    JS_FreeCString(ctx, str);
+  }
+  return output;
+}
+
+std::string Engine::js_error_to_string(JSContext *ctx, JSValueConst exception_optional) {
+  JSValue local_exception = 0;
+  JSValue exception_val = exception_optional;
+  JSValue name = 0;
+  JSValue message = 0;
+  JSValue stack = 0;
+
+  if (!exception_val) {
+    local_exception = JS_GetException(ctx);
+    exception_val = local_exception;
+  }
+
+  std::string output = js_to_string(ctx, exception_val);
+
+  if (JS_IsError(exception_val)) {
+    name = JS_GetPropertyStr(ctx, exception_val, "name");
+    message = JS_GetPropertyStr(ctx, exception_val, "message");
+    stack = JS_GetPropertyStr(ctx, exception_val, "stack");
+  } else {
+    js_std_cmd(/*ErrorBackTrace*/2, ctx, &stack);
+  }
+
+  if (name && !JS_IsUndefined(name)) {
+    output += "[name]";
+    output += js_to_string(ctx, name);
+    output += ": ";
+  }
+  if (message && !JS_IsUndefined(message)) {
+    output += "[message]";
+    output += js_to_string(ctx, message);
+  }
+  if (!JS_IsUndefined(stack)) {
+    output += "\n[stack]";
+    output += js_to_string(ctx, stack);
+  }
+
+  if (name) {
+    JS_FreeValue(ctx, name);
+  }
+  if (message) {
+    JS_FreeValue(ctx, message);
+  }
+  if (stack) {
+    JS_FreeValue(ctx, stack);
+  }
+
+  return output;
+}
+
 JSValue Engine::LoadCjsModule(JSContext* ctx, const char* path, const char* content, bool standalone) {
   std::string real_path;
 
@@ -477,8 +571,7 @@ JSValue Engine::LoadCjsModule(JSContext* ctx, const char* path, const char* cont
     real_path.append(".js");
   }
 
-  fprintf(stderr, "LoadCjsModule: %s\n", real_path.c_str());
-
+  fprintf(stderr, "LoadCjsModule: %s (%d)\n", real_path.c_str(), loaded_modules_.count(real_path));
   if (loaded_modules_.count(real_path)) {
     return JS_DupValue(ctx, loaded_modules_[real_path]);
   }
@@ -523,6 +616,7 @@ JSValue Engine::LoadCjsModule(JSContext* ctx, const char* path, const char* cont
     JS_FreeValue(ctx, module_obj);
     return JS_EXCEPTION;
   }
+
   // Call the module function
   JSValueConst module_args[6] = {
     exports_obj,
@@ -555,6 +649,40 @@ JSValue Engine::LoadCjsModule(JSContext* ctx, const char* path, const char* cont
   loaded_modules_[real_path] = final_exports;
 
   return JS_DupValue(ctx, final_exports);
+}
+
+JSValue Engine::CreateWindow(const char* content, const uint8_t *windowOptions_msgp, int windowOptions_len) {
+  JSContext* ctx = ctx_;
+
+  std::string script_template;
+  script_template =  "(function (global, content, windowOptions) {\n";
+  script_template +=   "return __sys.createWindow(content, windowOptions ? __sys.munpack(windowOptions) : {});\n";
+  script_template += "})";
+
+  JSValue module_func = JS_Eval(ctx, script_template.c_str(), script_template.length(),
+                                "<create-window>", JS_EVAL_FLAG_STRICT | JS_EVAL_TYPE_GLOBAL);
+
+  if (JS_IsException(module_func)) {
+    return JS_EXCEPTION;
+  }
+
+  // Call the module function
+  JSValueConst module_args[3] = {
+    JS_GetGlobalObject(ctx),
+    JS_NewString(ctx, content ? content : ""),
+    windowOptions_msgp ? JS_NewArrayBufferCopy(ctx, windowOptions_msgp, windowOptions_len) : JS_NULL,
+  };
+  JSValue ret_val = JS_Call(ctx, module_func, JS_UNDEFINED, 6, module_args);
+
+  JS_FreeValue(ctx, module_args[0]); // global
+  JS_FreeValue(ctx, module_args[1]); // content
+  JS_FreeValue(ctx, module_args[2]); // windowOptions
+
+  if (JS_IsException(ret_val)) {
+    return JS_EXCEPTION;
+  }
+
+  return ret_val;
 }
 
 JSValue Engine::JsConsoleLog(JSContext* ctx, JSValueConst this_val, int argc,
@@ -635,12 +763,6 @@ bool Engine::HasPendingJobs() const {
 }
 
 char* Engine::Eval(const char* code) {
-  if (!ctx_) {
-    if (!Init()) {
-      return strdup("Error: Failed to initialize QuickJS");
-    }
-  }
-
   JSValue result = JS_Eval(ctx_, code, strlen(code), "<eval>",
                            JS_EVAL_TYPE_GLOBAL);
 
@@ -654,36 +776,6 @@ char* Engine::Eval(const char* code) {
   JS_FreeValue(ctx_, result);
 
   return result_copy;
-}
-
-double Engine::Calculate(const char* expression) {
-  if (!ctx_) {
-    if (!Init()) {
-      return 0.0;
-    }
-  }
-
-  JSValue result = JS_Eval(ctx_, expression, strlen(expression), "<calc>",
-                           JS_EVAL_TYPE_GLOBAL);
-
-  if (JS_IsException(result)) {
-    JS_FreeValue(ctx_, result);
-    return 0.0;
-  }
-
-  double value = 0.0;
-  if (JS_ToFloat64(ctx_, &value, result) < 0) {
-    value = 0.0;
-  }
-
-  JS_FreeValue(ctx_, result);
-  return value;
-}
-
-void Engine::FreeString(char* str) {
-  if (str) {
-    free(str);
-  }
 }
 
 }  // namespace request_unraver

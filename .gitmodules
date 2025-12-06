@@ -10,3 +10,6 @@
 [submodule "third_party/walink"]
 	path = third_party/walink
 	url = https://github.com/jc-lab/walink.git
+[submodule "third_party/msgpack"]
+	path = third_party/msgpack
+	url = https://github.com/msgpack/msgpack-c.git

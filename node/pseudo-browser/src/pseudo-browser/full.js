@@ -8,12 +8,13 @@
 import './sys';
 import './text-encoder';
 import './node-polyfill';
+import './msgpack';
 import './dom-parser';
 import './early-window';
 // import 'rrweb-cssom';
 import './jsdom';
 // import './load-document'
-// import './jquery';
+import './jquery';
 // import 'jquery-ui/dist/jquery-ui.js';
 // import './jquery.dynatree';
 // import './form-submit';

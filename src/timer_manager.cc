@@ -23,7 +23,6 @@ TimerManager::TimerManager(JSRuntime* rt) : runtime_(rt), thread_state_(nullptr)
   if (thread_state_) {
     InitListHead(&thread_state_->os_timers);
     thread_state_->next_timer_id = 1;
-    JS_SetRuntimeOpaque(rt, thread_state_);
   }
 }
 

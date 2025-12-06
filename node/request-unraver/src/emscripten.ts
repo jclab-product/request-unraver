@@ -1,4 +1,4 @@
-import {isArgumentsObject} from "util/types";
+import {isArgumentsObject} from 'util/types';
 
 const _emscripten_get_now = () => performance.now();
 const _emscripten_date_now = () => Date.now();
@@ -279,7 +279,6 @@ export class EmscriptenRuntime {
         const exports = result.instance.exports as any;
         this.exports = exports;
         this.attachMemory(exports['memory'] as any);
-        console.log('this.exports : ', Object.keys(this.exports));
 
         exports['emscripten_stack_init']();
 
@@ -290,13 +289,12 @@ export class EmscriptenRuntime {
         }
 
         // run mian
-        exports['_initialize']();
+        // exports['_initialize']();
     }
 
     // WASM 메모리를 연결합니다. 인스턴스화 이후에 호출되어야 합니다.
     attachMemory(memory: WebAssembly.Memory) {
         this.wasmMemory = memory;
-        console.log('memory : ', memory.buffer.byteLength);
         this.updateMemoryViews();
     }
 
@@ -318,12 +316,10 @@ export class EmscriptenRuntime {
     protected setStackLimits(exports: Record<string, any>) {
         var stackLow = exports['emscripten_stack_get_base']();
         var stackHigh = exports['emscripten_stack_get_end']();
-        console.log('__set_stack_limits: ', stackLow, stackHigh)
         exports['__set_stack_limits'](stackLow, stackHigh);
     };
 
     protected _emscripten_notify_memory_growth(memoryIndex: number) {
-        console.log('_emscripten_notify_memory_growth: ', memoryIndex);
         this.updateMemoryViews();
     }
 
@@ -581,7 +577,6 @@ export class EmscriptenRuntime {
     }
 
     private _environ_get(__environ: number, environ_buf: number) {
-        console.log('_environ_get : ', __environ, environ_buf);
         let bufSize = 0;
         let envp = 0;
         for (let string of this.getEnvStrings()) {
@@ -595,7 +590,6 @@ export class EmscriptenRuntime {
     }
 
     private _environ_sizes_get(penviron_count: number, penviron_buf_size: number) {
-        console.log('_environ_sizes_get : ', penviron_count, penviron_buf_size);
         const strings = this.getEnvStrings();
         this.HEAPU32[((penviron_count) >> 2)] = strings.length;
         checkInt32(strings.length);

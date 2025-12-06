@@ -26,8 +26,10 @@
     "jquery-ui": "^1.13.3",
     "jsdom": "^26.1.0",
     "lodash.snakecase": "^4.1.1",
+    "msgpackr": "^1.11.5",
     "readable-stream": "^4.5.2",
     "text-encoding-polyfill": "^0.6.7",
+    "walink": "^0.0.7",
     "xmldom": "^0.6.0"
   }
 }
