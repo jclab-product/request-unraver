@@ -219,11 +219,12 @@ EXPORT WL_VALUE engine_use_jquery(WL_VALUE engine_instance, WL_VALUE window) {
   return 0;
 }
 
-EXPORT WL_VALUE engine_browser_eval(WL_VALUE engine_instance, WL_VALUE window, WL_VALUE string_code) {
+EXPORT WL_VALUE engine_browser_eval(WL_VALUE engine_instance, WL_VALUE window, WL_VALUE string_code, WL_VALUE wl_params) {
   using namespace walink;
 
   JSValue window_obj = js_value_from_wl(window);
   std::string code = wl_to_string(string_code, true);
+  std::string params = wl_params ? wl_to_msgpack(wl_params, true) : "";
 
   request_unraver::Engine* eng = recover_engine_from_wl(engine_instance);
   if (!eng) {
@@ -233,22 +234,30 @@ EXPORT WL_VALUE engine_browser_eval(WL_VALUE engine_instance, WL_VALUE window, W
   JSContext *ctx = eng->context();
 
   JSValue global_obj = JS_GetGlobalObject(ctx);
-  std::string script_template = "(function (global, window) {";
+  std::string script_template = "(function (global, window, _raw_params) {";
   script_template += "const document = window.document; const jQuery = window.jQuery; const $ = window.$;";
+  script_template += "const params = _raw_params ? __sys.munpack(_raw_params) : null;";
   script_template += code;
   script_template += "\n})";
 
+  JSValue js_params_raw = params.empty() ? JS_NULL : JS_NewUint8ArrayCopy(ctx, (const uint8_t*) params.c_str(), params.length());
+
   JSValue r = JS_Eval(ctx, script_template.c_str(), script_template.length(), "<browser_eval>", JS_EVAL_TYPE_GLOBAL);
   if (!JS_IsException(r)) {
-    JSValueConst args[2] = {
+    JSValueConst args[3] = {
       global_obj,
       window_obj,
+      js_params_raw,
     };
-    JSValue ret = JS_Call(ctx, r, window_obj, 2, args);
+    JSValue ret = JS_Call(ctx, r, window_obj, 3, args);
     JS_FreeValue(ctx, r);
     r = ret;
   }
   JS_FreeValue(ctx, global_obj);
+
+  if (js_params_raw != JS_NULL) {
+    JS_FreeValue(ctx, js_params_raw);
+  }
 
   WL_VALUE wl_return;
   if (JS_IsException(r)) {

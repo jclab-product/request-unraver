@@ -147,13 +147,13 @@ function assert(condition: boolean, message: string) {
     }
 }
 
-function checkInt(value, bits, min, max) {
+function checkInt(value: number, bits: number, min: number, max: number) {
     assert(Number.isInteger(Number(value)), `attempt to write non-integer (${value}) into integer heap`);
     assert(value <= max, `value (${value}) too large to write as ${bits}-bit value`);
     assert(value >= min, `value (${value}) too small to write as ${bits}-bit value`);
 }
 
-var checkInt1 = (value: number) => checkInt(value, 1, 1);
+var checkInt1 = (value: number) => checkInt(value, 1, 1, 1);
 var checkInt8 = (value: number) => checkInt(value, 8, MIN_INT8, MAX_UINT8);
 var checkInt16 = (value: number) => checkInt(value, 16, MIN_INT16, MAX_UINT16);
 var checkInt32 = (value: number) => checkInt(value, 32, MIN_INT32, MAX_UINT32);

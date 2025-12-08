@@ -9,26 +9,6 @@ import {
 } from 'jsdom';
 
 export class Engine {
-    static async fromFile(name: string): Promise<Engine> {
-        const fs = await import('fs');
-        const wasmBinary = await fs.promises.readFile(name);
-
-        const emscriptenRuntime = new EmscriptenRuntime();
-
-        Object.assign(emscriptenRuntime.wasmImports, {
-            '_ru_get_now': performance.now.bind(performance),
-            '_ru_get_random': function (ptr: number, size: number) {
-                const view = new Uint8Array(emscriptenRuntime.wasmMemory.buffer, ptr, size);
-                crypto.getRandomValues(view);
-            },
-        })
-
-        await emscriptenRuntime.instantiate(wasmBinary);
-        const e = new Engine(emscriptenRuntime);
-        await e.init();
-        return e;
-    }
-
     protected walink!: Walink;
     protected engineHandle: WlValue | null = null;
 
@@ -107,8 +87,9 @@ export class Engine {
             this.engineHandle,
             content ? this.walink.toWlString(content) : 0n,
             windowOptions ? this.walink.toWlMsgpack(windowOptions) : 0n,
-        );
-        return this.walink.decode(raw);
+        ) as WlValue;
+        this.walink.decode(raw);
+        return raw;
     }
 
     public useJquery(window: WlValue): WlValue {
@@ -129,7 +110,7 @@ export class Engine {
         return ret;
     }
 
-    public browserEval(window: WlValue, content: string): any {
+    public browserEval(window: WlValue, content: string, params?: any): any {
         if (!this.engineHandle) throw new Error('engine not initialized');
 
         const fn = this.runtime.exports['engine_browser_eval'];
@@ -141,6 +122,7 @@ export class Engine {
             this.engineHandle,
             window,
             content ? this.walink.toWlString(content) : 0n,
+            params ? this.walink.toWlMsgpack(params) : 0n,
         );
         if (!raw) {
             return null;
