@@ -30,7 +30,7 @@ jobs:
     - name: Install system dependencies
       uses: Eeems-Org/apt-cache-action@v1
       with:
-        packages: build-essential cmake squashfs-tools xxd jq python3 python3-pip python3-venv wine
+        packages: build-essential cmake squashfs-tools xxd jq python3 python3-pip python3-venv
     
     - name: Setup Emscripten
       uses: mymindstorm/setup-emsdk@v14
