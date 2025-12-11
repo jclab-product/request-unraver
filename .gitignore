@@ -11,9 +11,7 @@ dist/*.wasm
 *.dylib
 
 # 실행 파일
-*.exe
 *.out
-quickjs-api
 
 # 디버그 심볼
 *.dSYM/

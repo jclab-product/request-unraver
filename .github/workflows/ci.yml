@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ '**' ]
+    tags: [ 'v*' ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.15.0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+        cache: 'pnpm'
+        cache-dependency-path: 'node/pnpm-lock.yaml'
+
+    - name: Install system dependencies
+      uses: Eeems-Org/apt-cache-action@v1
+      with:
+        packages: build-essential cmake squashfs-tools xxd jq python3 python3-pip python3-venv wine
+    
+    - name: Setup Emscripten
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: latest
+        actions-cache-folder: 'emsdk-cache'
+        
+    - name: Install Node dependencies
+      run: |
+        cd node
+        pnpm install
+
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=emcc -DCMAKE_CXX_COMPILER=em++
+
+    - name: Build
+      run: |
+        cmake --build ./build -j
+
+    # - name: Run tests
+    #   run: |
+    #     cd build
+    #     ctest --output-on-failure || echo "No tests defined or tests failed"
+
+    - name: Create release on tag
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+        # Update package.json version
+        cd node/request-unraver
+        jq ".version = \"$VERSION\"" package.json > package.json.tmp && mv package.json.tmp package.json
+
+        # Pack
+        pnpm build
+        pnpm pack
+        PACK_FILE=$(ls request-unraver-*.tgz | head -1)
+        echo "PACK_FILE=$PACK_FILE" >> $GITHUB_ENV
+
+    - name: Upload release assets
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          build/dist/request-unraver-wasm.wasm
+          node/request-unraver/${{ env.PACK_FILE }}
+        tag_name: ${{ github.ref }}
+        name: Release ${{ env.VERSION }}
+        draft: false
+        prerelease: ${{ contains(env.VERSION, 'rc') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

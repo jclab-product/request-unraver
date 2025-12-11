@@ -81,8 +81,8 @@ importers:
         specifier: ^1.11.5
         version: 1.11.5
       walink:
-        specifier: ^0.0.7
-        version: 0.0.7
+        specifier: ^0.0.9
+        version: 0.0.9
     devDependencies:
       '@rollup/plugin-typescript':
         specifier: ^12.3.0
@@ -2001,6 +2001,10 @@ packages:
 
   walink@0.0.7:
     resolution: {integrity: sha512-7DSgYaAbNjQi/aFpU4RrhcEj98jbNgls8kK1+Ir+4QdcRLPG127vvulpNI5ku6WYfibmyuVlj6O4cjpl39NXuw==}
+    engines: {node: '>=18.0.0'}
+
+  walink@0.0.9:
+    resolution: {integrity: sha512-4d6WYHpZvq0OcgZeC1fuQlAVXtFqDeakPDXIc2IfqA4EOLFT6PRjOOe0beTg3sObWhIl5XszWU49phKKGRmqjg==}
     engines: {node: '>=18.0.0'}
 
   webidl-conversions@7.0.0:
@@ -4053,6 +4057,10 @@ snapshots:
       xml-name-validator: 5.0.0
 
   walink@0.0.7:
+    dependencies:
+      msgpackr: 1.11.5
+
+  walink@0.0.9:
     dependencies:
       msgpackr: 1.11.5
 
