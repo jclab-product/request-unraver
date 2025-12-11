@@ -13,3 +13,6 @@
 [submodule "third_party/msgpack"]
 	path = third_party/msgpack
 	url = https://github.com/msgpack/msgpack-c.git
+[submodule "third_party/jclab-license-v2"]
+	path = third_party/jclab-license-v2
+	url = https://github.com/jc-lab/jclab-license-v2.git

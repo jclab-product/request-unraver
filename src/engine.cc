@@ -16,7 +16,6 @@ extern "C" {
 #include <squash.h>
 }
 
-#include "static_vfs_data.h"
 #include "vfs_manager.h"
 
 namespace request_unraver {
@@ -95,7 +94,7 @@ Engine::~Engine() {
   Shutdown();
 }
 
-bool Engine::Init(uint32_t mode) {
+bool Engine::Init(uint32_t mode, std::shared_ptr<VfsManager> vfs_manager) {
   if (rt_ != nullptr) {
     return true;  // 이미 초기화됨
   }
@@ -104,11 +103,7 @@ bool Engine::Init(uint32_t mode) {
     return false;
   }
 
-  vfs_manager_ = std::make_unique<VfsManager>();
-  if (!InitializeVfs()) {
-    Shutdown();
-    return false;
-  }
+  vfs_manager_ = vfs_manager;
 
   timer_manager_ = std::make_unique<TimerManager>(rt_);
   if (!timer_manager_->thread_state()) {
@@ -172,14 +167,6 @@ bool Engine::InitializeRuntime() {
     fprintf(stderr, "Failed to create QuickJS context.\n");
     JS_FreeRuntime(rt_);
     rt_ = nullptr;
-    return false;
-  }
-  return true;
-}
-
-bool Engine::InitializeVfs() {
-  if (!vfs_manager_->Init(embedded::static_vfs_data, embedded::static_vfs_size)) {
-    fprintf(stderr, "Failed to initialize VfsManager.\n");
     return false;
   }
   return true;
@@ -571,7 +558,7 @@ JSValue Engine::LoadCjsModule(JSContext* ctx, const char* path, const char* cont
     real_path.append(".js");
   }
 
-  fprintf(stderr, "LoadCjsModule: %s (%d)\n", real_path.c_str(), loaded_modules_.count(real_path));
+  // fprintf(stderr, "LoadCjsModule: %s (%d)\n", real_path.c_str(), loaded_modules_.count(real_path));
   if (loaded_modules_.count(real_path)) {
     return JS_DupValue(ctx, loaded_modules_[real_path]);
   }
@@ -606,7 +593,7 @@ JSValue Engine::LoadCjsModule(JSContext* ctx, const char* path, const char* cont
     script_template += "const require = globalThis.__sys_wrapped_require(__orig_require, __filename); ";
   }
   script_template.append(content, content_len);
-  script_template += "\n                                             })";
+  script_template += "\n})";
 
   JSValue module_func = JS_Eval(ctx, script_template.c_str(), script_template.length(),
                                 path, JS_EVAL_FLAG_STRICT | JS_EVAL_TYPE_GLOBAL);

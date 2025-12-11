@@ -101,6 +101,9 @@ SET (MSGPACK_USE_BOOST  OFF CACHE BOOLEAN "Use Boost libraried" FORCE)
 SET (MSGPACK_BUILD_DOCS OFF CACHE BOOLEAN "Build Doxygen documentation" FORCE)
 add_subdirectory(${MSGPACK_DIR} ${BUILD_DIR}/msgpack)
 
+# THIRD_PARTY: libsquash
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/jclab-license-v2 ${BUILD_DIR}/jclab-license-v2)
+
 # 메인 소스 파일
 set(MAIN_SOURCES
         ${SRC_DIR}/wasm_binding.cc
@@ -161,7 +164,7 @@ add_library(static_vfs_data STATIC ${STATIC_VFS_DATA_SOURCE} ${STATIC_VFS_DATA_H
 
 # 메인 실행 파일 (WASM 모듈)
 add_executable(request-unraver-wasm ${MAIN_SOURCES})
-target_link_libraries(request-unraver-wasm PRIVATE static_vfs_data qjs zlibstatic squash msgpack-cxx)
+target_link_libraries(request-unraver-wasm PRIVATE static_vfs_data qjs zlibstatic squash msgpack-cxx jclab_license mbedtls)
 target_compile_definitions(request-unraver-wasm PRIVATE CONFIG_VERSION="ng")
 target_include_directories(request-unraver-wasm PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

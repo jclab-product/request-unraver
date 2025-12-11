@@ -35,17 +35,17 @@ bool VfsManager::Init(const unsigned char* data, size_t size) {
     vfs_ = nullptr;
     return false;
   }
-  printf("✓ VFS mounted successfully (%zu bytes)\n", size);
+  // fprintf(stderr, "✓ VFS mounted successfully (%zu bytes)\n", size);
 
   errno = 0;
 
   // VFS 파일 리스트 출력 (디버깅용)
-  printf("📁 VFS Files:\n");
+  // fprintf(stderr, "📁 VFS Files:\n");
   SQUASH_DIR* dir = squash_opendir(vfs_, "/");
   if (dir) {
     struct SQUASH_DIRENT* entry;
     while ((entry = squash_readdir(dir)) != nullptr) {
-      printf("  - %s\n", entry->d_name);
+      // fprintf(stderr, "  - %s\n", entry->d_name);
     }
     squash_closedir(dir);
   }

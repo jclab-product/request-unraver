@@ -1,8 +1,14 @@
 import {EmscriptenRuntime} from './emscripten';
 import { Engine } from './engine';
+import {
+    Walink,
+    createWalinkFromInstance
+} from "walink";
 
 export class Runtime {
-    static async fromFile(name: string): Promise<Runtime> {
+    protected readonly walink!: Walink;
+
+    static async fromFile(name: string, license: string): Promise<Runtime> {
         const fs = await import('fs');
         const wasmBinary = await fs.promises.readFile(name);
 
@@ -17,12 +23,22 @@ export class Runtime {
         })
 
         await emscriptenRuntime.instantiate(wasmBinary);
-        return new Runtime(emscriptenRuntime);
+        const runtime = new Runtime(emscriptenRuntime);
+        await runtime.init(license);
+        return runtime;
     }
 
     constructor(
         private readonly emscriptenRuntime: EmscriptenRuntime,
-    ) {}
+    ) {
+        // Build walink helper bound to instantiated WASM instance
+        this.walink = createWalinkFromInstance(emscriptenRuntime.instance);
+    }
+
+    private async init(licenseBase64: string): Promise<void> {
+        const v = (this.emscriptenRuntime.exports['runtime_init'] as any)(this.walink.toWlString(licenseBase64));
+        this.walink.decode(v);
+    }
 
     async newEngine(mode: number): Promise<Engine> {
         const eng = new Engine(this.emscriptenRuntime);

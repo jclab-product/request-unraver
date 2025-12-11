@@ -21,7 +21,7 @@ namespace request_unraver {
 
 class Engine {
  public:
-  bool Init(uint32_t mode);
+  bool Init(uint32_t mode, std::shared_ptr<VfsManager> vfs_manager);
   void Shutdown();
 
   // 이벤트 루프
@@ -44,7 +44,6 @@ class Engine {
   ~Engine();
 
   bool InitializeRuntime();
-  bool InitializeVfs();
   void RegisterGlobals();
 
   JSValue JsConsoleLog(JSContext* ctx, JSValueConst this_val, int argc,
@@ -86,7 +85,7 @@ private:
  JSRuntime* rt_;
  JSContext* ctx_;
  std::unique_ptr<TimerManager> timer_manager_;
- std::unique_ptr<VfsManager> vfs_manager_;
+ std::shared_ptr<VfsManager> vfs_manager_;
 };
 
 }  // namespace request_unraver

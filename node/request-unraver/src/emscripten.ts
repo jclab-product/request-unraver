@@ -243,6 +243,9 @@ export class EmscriptenRuntime {
             fd_close: this.fd_close.bind(this),
             fd_seek: this.fd_seek.bind(this),
             fd_write: this.fd_write.bind(this),
+            fd_read: this.fd_read.bind(this),
+            __syscall_renameat: () => {},
+            __syscall_rmdir: () => {},
         };
 
         const runtime = this;
@@ -627,6 +630,10 @@ export class EmscriptenRuntime {
         //     throw e;
         // }
         return 0;
+    }
+
+    private fd_read(fd: number, iov: number, iovcnt: number, pnum: number): number {
+        throw new Error(`not impl: fd_read(${fd}, ${iov}, ${iovcnt}, ${pnum})`);
     }
 
     private fd_write(fd: number, iov: number, iovcnt: number, pnum: number): number {
