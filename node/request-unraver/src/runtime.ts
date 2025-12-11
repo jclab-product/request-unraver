@@ -3,16 +3,17 @@ import { Engine } from './engine';
 import {
     Walink,
     createWalinkFromInstance
-} from "walink";
+} from 'walink';
 
 export class Runtime {
     protected readonly walink!: Walink;
 
-    static async fromFile(name: string, license: string): Promise<Runtime> {
+    static async fromFile(name: string, license: string, customInit?: (emscriptenRuntime: EmscriptenRuntime) => Promise<void>): Promise<Runtime> {
         const fs = await import('fs');
         const wasmBinary = await fs.promises.readFile(name);
 
         const emscriptenRuntime = new EmscriptenRuntime();
+        emscriptenRuntime.logWriter = (msg) => console.log(msg);
 
         Object.assign(emscriptenRuntime.wasmImports, {
             '_ru_get_now': performance.now.bind(performance),
@@ -21,6 +22,10 @@ export class Runtime {
                 crypto.getRandomValues(view);
             },
         })
+
+        if (customInit) {
+            await customInit(emscriptenRuntime);
+        }
 
         await emscriptenRuntime.instantiate(wasmBinary);
         const runtime = new Runtime(emscriptenRuntime);

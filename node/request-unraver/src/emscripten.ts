@@ -179,6 +179,8 @@ export class EmscriptenRuntime {
     public readonly wasmImports: Record<string, any>;
     public readonly ErrnoError: ErrnoErrorConstructor;
 
+    public logWriter: ((text: string) => void) | null = null;
+
     public instance!: WebAssembly.Instance;
     public module!: WebAssembly.Module;
     public exports!: Record<string, any>;
@@ -328,13 +330,13 @@ export class EmscriptenRuntime {
 
     private abort(what?: any) {
         const msg = 'Aborted(' + what + ')';
-        console.error(msg);
+        this.logWriter?.apply(null, [`ABORT: ${msg}`]);
         this.ABORT = true;
         throw new WebAssembly.RuntimeError(msg);
     }
 
     private err(text: string) {
-        console.error(text);
+        this.logWriter?.apply(null, [`ERR: ${text}`]);
     }
 
     // Integer checks
@@ -648,7 +650,7 @@ export class EmscriptenRuntime {
                 iov += 8;
 
                 if (fd < 3) {
-                    console.log(`FD[${fd}]: `, this.UTF8ToString(ptr, len).replace(/[ \r\n]$/g, ''));
+                    this.logWriter?.apply(null, [`FD[${fd}]: ${this.UTF8ToString(ptr, len).replace(/[ \r\n]$/g, '')}`]);
                 }
                 const curr = len;
 

@@ -129,7 +129,6 @@ public:
     if (!license_result.verified) {
       return wl_make_error("no licensed - 1");
     }
-    fprintf(stderr, "TP04\n");
 
     license_pack_ = license_result.pack;
 
