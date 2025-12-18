@@ -326,6 +326,15 @@ EXPORT WL_VALUE engine_create_window(WL_VALUE engine_instance, WL_VALUE wl_conte
   return js_value_to_wl(js_window);
 }
 
+EXPORT WL_VALUE engine_destroy_window(WL_VALUE engine_instance, WL_VALUE wl_window) {
+  request_unraver::Engine* eng = recover_engine_from_wl(engine_instance);
+  JSValue window_obj = js_value_from_wl(wl_window);
+
+  JS_FreeValue(eng->context(), window_obj);
+
+  return wl_from_bool(true);
+}
+
 EXPORT WL_VALUE engine_use_jquery(WL_VALUE engine_instance, WL_VALUE window) {
   JSValue window_obj = js_value_from_wl(window);
 

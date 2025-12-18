@@ -32,7 +32,7 @@ class Engine {
   bool HasPendingJobs() const;
 
   // JS 실행
-  char* Eval(const char* code);
+  void Eval(const char* code);
 
   // 접근자 (내부용)
   JSRuntime* runtime() const { return rt_; }

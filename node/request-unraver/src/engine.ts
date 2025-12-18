@@ -92,6 +92,15 @@ export class Engine {
         return raw;
     }
 
+    public destroyWindow(wlWindow: WlValue): boolean {
+        const fn = this.runtime.exports['engine_destroy_window'];
+        if (typeof fn !== 'function') {
+            throw new Error('wasm export engine_destroy_window not found');
+        }
+        const raw = fn(this.engineHandle, wlWindow);
+        return this.walink.fromWlBool(raw);
+    }
+
     public useJquery(window: WlValue): WlValue {
         if (!this.engineHandle) throw new Error('engine not initialized');
 

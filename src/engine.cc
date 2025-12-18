@@ -127,6 +127,11 @@ bool Engine::Init(uint32_t mode, std::shared_ptr<VfsManager> vfs_manager) {
 }
 
 void Engine::Shutdown() {
+  for (auto iter = loaded_modules_.begin(); iter != loaded_modules_.end(); ) {
+    JS_FreeValue(ctx_, iter->second);
+    iter = loaded_modules_.erase(iter);
+  }
+
   if (rt_) {
     // TimerManager 소멸자가 타이머 정리
     timer_manager_.reset();
@@ -532,6 +537,7 @@ std::string Engine::js_error_to_string(JSContext *ctx, JSValueConst exception_op
 }
 
 JSValue Engine::LoadCjsModule(JSContext* ctx, const char* path, const char* content, bool standalone) {
+  JSValue return_value = JS_UNDEFINED;
   std::string real_path;
 
   size_t content_len = 0;
@@ -578,60 +584,65 @@ JSValue Engine::LoadCjsModule(JSContext* ctx, const char* path, const char* cont
   JSValue global_obj = JS_GetGlobalObject(ctx);
   JSValue require_func = JS_GetPropertyStr(ctx, global_obj, "require");
 
-  std::string dirname = Basename(path);
+  do {
+    std::string dirname = Basename(path);
 
-  // Module wrapper function (CommonJS style)
-  std::string script_template;
-  if (standalone) {
-    script_template = "(function (exports, global, require, module, __filename, __dirname) { ";
-  } else {
-    script_template = "(function (exports, global, __orig_require, module, __filename, __dirname) { ";
-    script_template += "const require = globalThis.__sys_wrapped_require(__orig_require, __filename); ";
-  }
-  script_template.append(content, content_len);
-  script_template += "\n})";
+    // Module wrapper function (CommonJS style)
+    std::string script_template;
+    if (standalone) {
+      script_template = "(function (exports, global, require, module, __filename, __dirname) { ";
+    } else {
+      script_template = "(function (exports, global, __orig_require, module, __filename, __dirname) { ";
+      script_template += "const require = globalThis.__sys_wrapped_require(__orig_require, __filename); ";
+    }
+    script_template.append(content, content_len);
+    script_template += "\n})";
 
-  JSValue module_func = JS_Eval(ctx, script_template.c_str(), script_template.length(),
-                                path, JS_EVAL_FLAG_STRICT | JS_EVAL_TYPE_GLOBAL);
+    JSValue module_func = JS_Eval(ctx, script_template.c_str(), script_template.length(),
+                                  path, JS_EVAL_FLAG_STRICT | JS_EVAL_TYPE_GLOBAL);
 
-  if (JS_IsException(module_func)) {
-    JS_FreeValue(ctx, exports_obj);
-    JS_FreeValue(ctx, module_obj);
-    return JS_EXCEPTION;
-  }
+    if (JS_IsException(module_func)) {
+      return_value = JS_EXCEPTION;
+      JS_FreeValue(ctx, module_func);
+      break;
+    }
 
-  // Call the module function
-  JSValueConst module_args[6] = {
-    exports_obj,
-    global_obj,
-    require_func,
-    module_obj,
-    JS_NewString(ctx, real_path.c_str()),
-    JS_NewString(ctx, dirname.c_str())
-  };
-  JSValue ret_val = JS_Call(ctx, module_func, JS_UNDEFINED, 6, module_args);
+    // Call the module function
+    JSValueConst module_args[6] = {
+      exports_obj,
+      global_obj,
+      require_func,
+      module_obj,
+      JS_NewString(ctx, real_path.c_str()),
+      JS_NewString(ctx, dirname.c_str())
+    };
+    JSValue ret_val = JS_Call(ctx, module_func, JS_UNDEFINED, 6, module_args);
 
-  JS_FreeValue(ctx, module_func);
+    JS_FreeValue(ctx, module_func);
+    JS_FreeValue(ctx, module_args[4]); // __filename
+    JS_FreeValue(ctx, module_args[5]); // __dirname
+
+    if (JS_IsException(ret_val)) {
+      JS_FreeValue(ctx, ret_val);
+      return_value = JS_EXCEPTION;
+      break;
+    }
+    JS_FreeValue(ctx, ret_val);
+
+    // Get the exports from the module object
+    JSValue final_exports = JS_GetPropertyStr(ctx, module_obj, "exports");
+
+    // Cache the module
+    loaded_modules_[real_path] = final_exports;
+
+    return_value = JS_DupValue(ctx, final_exports);
+  } while (0);
+
+  JS_FreeValue(ctx, module_obj);
+  JS_FreeValue(ctx, exports_obj);
   JS_FreeValue(ctx, global_obj);
   JS_FreeValue(ctx, require_func);
-  JS_FreeValue(ctx, module_args[4]); // __filename
-  JS_FreeValue(ctx, module_args[5]); // __dirname
-
-  if (JS_IsException(ret_val)) {
-    JS_FreeValue(ctx, exports_obj);
-    JS_FreeValue(ctx, module_obj);
-    return JS_EXCEPTION;
-  }
-  JS_FreeValue(ctx, ret_val);
-
-  // Get the exports from the module object
-  JSValue final_exports = JS_GetPropertyStr(ctx, module_obj, "exports");
-  JS_FreeValue(ctx, module_obj);
-
-  // Cache the module
-  loaded_modules_[real_path] = final_exports;
-
-  return JS_DupValue(ctx, final_exports);
+  return return_value;
 }
 
 JSValue Engine::CreateWindow(const char* content, const uint8_t *windowOptions_msgp, int windowOptions_len) {
@@ -745,7 +756,7 @@ bool Engine::HasPendingJobs() const {
   return rt_ && JS_IsJobPending(rt_);
 }
 
-char* Engine::Eval(const char* code) {
+void Engine::Eval(const char* code) {
   JSValue result = JS_Eval(ctx_, code, strlen(code), "<eval>",
                            JS_EVAL_TYPE_GLOBAL);
 
@@ -753,12 +764,7 @@ char* Engine::Eval(const char* code) {
     js_std_dump_error(ctx_);
   }
 
-  const char* result_str = JS_ToCString(ctx_, result);
-  char* result_copy = strdup(result_str ? result_str : "undefined");
-  JS_FreeCString(ctx_, result_str);
   JS_FreeValue(ctx_, result);
-
-  return result_copy;
 }
 
 }  // namespace request_unraver
