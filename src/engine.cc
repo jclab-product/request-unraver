@@ -135,10 +135,6 @@ void Engine::Shutdown() {
     JS_SetRuntimeOpaque(rt_, nullptr);
   }
 
-  if (vfs_manager_) {
-    vfs_manager_->Shutdown();
-  }
-
   if (ctx_) {
     JS_FreeContext(ctx_);
     ctx_ = nullptr;
