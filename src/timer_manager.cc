@@ -27,7 +27,10 @@ TimerManager::TimerManager(JSRuntime* rt) : runtime_(rt), thread_state_(nullptr)
 }
 
 TimerManager::~TimerManager() {
-  // 소멸자는 cleanup에서 처리
+  if (thread_state_) {
+    js_free_rt(runtime_, thread_state_);
+    thread_state_ = nullptr;
+  }
 }
 
 uint64_t TimerManager::GetTimeMs() {

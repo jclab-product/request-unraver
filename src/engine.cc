@@ -657,6 +657,7 @@ JSValue Engine::CreateWindow(const char* content, const uint8_t *windowOptions_m
                                 "<create-window>", JS_EVAL_FLAG_STRICT | JS_EVAL_TYPE_GLOBAL);
 
   if (JS_IsException(module_func)) {
+    JS_FreeValue(ctx, module_func);
     return JS_EXCEPTION;
   }
 
@@ -668,11 +669,13 @@ JSValue Engine::CreateWindow(const char* content, const uint8_t *windowOptions_m
   };
   JSValue ret_val = JS_Call(ctx, module_func, JS_UNDEFINED, 6, module_args);
 
+  JS_FreeValue(ctx, module_func);
   JS_FreeValue(ctx, module_args[0]); // global
   JS_FreeValue(ctx, module_args[1]); // content
   JS_FreeValue(ctx, module_args[2]); // windowOptions
 
   if (JS_IsException(ret_val)) {
+    JS_FreeValue(ctx, ret_val);
     return JS_EXCEPTION;
   }
 
